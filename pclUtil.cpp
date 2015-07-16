@@ -51,16 +51,35 @@ void imaiUtil::customPCLVisualizerInteractorStyle::OnKeyDown ()
 
 //void imaiUtil::customPCLVisualizerInteractorStyle::OnKeyUp (){}
 
-imaiUtil::CoordinatedObjectClass::CoordinatedObjectClass():
+imaiUtil::CoordinatedObjectClass::CoordinatedObjectClass( std::string stringID ):
 	pc( new pcl::PointCloud<pcl::PointXYZRGB>() ),
 	pc_local( new pcl::PointCloud<pcl::PointXYZRGB>() ),
 	flag_drawFirstTime(true)
 {
+	imaiUtil::CoordinatedObjectClass::vct_cobjAll.push_back(this);
 	//this->pc = (new pcl::PointCloud<pcl::PointXYZRGB>() );
 	
 	this->tf.matrix() = Eigen::Matrix4f::Identity();
 	this->pointPix = 3;
-	this->strID = "_";
+	if( stringID != "_" )
+		this->strID = stringID;
+	else
+	{
+		this->strID = std::string( "object" ) 
+			+ std::to_string(imaiUtil::CoordinatedObjectClass::vct_cobjAll.size());
+	}	
+}
+
+imaiUtil::CoordinatedObjectClass::~CoordinatedObjectClass()
+{
+	// delete self from static member "vct_cobjAll"
+	std::vector<imaiUtil::CoordinatedObjectClass*> vct_alt;
+	const int size_vct = imaiUtil::CoordinatedObjectClass::vct_cobjAll.size();
+	for(int i=0 ; i< size_vct ; i++)
+		if( this != imaiUtil::CoordinatedObjectClass::vct_cobjAll[i] )
+			vct_alt.push_back(vct_cobjAll[i]);
+
+	imaiUtil::CoordinatedObjectClass::vct_cobjAll = vct_alt;
 }
 
 

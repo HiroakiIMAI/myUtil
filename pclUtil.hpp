@@ -20,8 +20,14 @@
 
 #include <pcl/visualization/cloud_viewer.h>  
 
+
 namespace imaiUtil
 {
+
+#define MACRO_USE_PCL_UTIL \
+	std::vector<imaiUtil::CoordinatedObjectClass*> imaiUtil::CoordinatedObjectClass::vct_cobjAll;
+
+
 	class customPCLVisualizer : public pcl::visualization::PCLVisualizer 
 	{
 		
@@ -57,20 +63,25 @@ namespace imaiUtil
 
 		Eigen::Affine3f tf;
 
+		static std::vector<imaiUtil::CoordinatedObjectClass *> vct_cobjAll;
+
 	private:
 		pcl::visualization::PCLVisualizer* int_viewer;
 		int* int_viewPort;
 		bool flag_drawFirstTime;
 
+		
 		//-- methods --//
 	public:
-		CoordinatedObjectClass();
+		CoordinatedObjectClass( std::string stringID = "_" );
+		~CoordinatedObjectClass();
 		void draw(pcl::visualization::PCLVisualizer& viewer, int& viewPort);
 		void updateDrawing();
 		void updateDrawing_withLocalPC();
 		void updateDrawing_withTransformedLocalPC();
 	};
 	
+
 #ifdef __CoordinatedCropBoxClass
 
 	template<class T_point>
