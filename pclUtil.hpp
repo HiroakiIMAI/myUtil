@@ -60,6 +60,7 @@ namespace imaiUtil
 	private:
 		pcl::visualization::PCLVisualizer* int_viewer;
 		int* int_viewPort;
+		bool flag_drawFirstTime;
 
 		//-- methods --//
 	public:
@@ -70,8 +71,7 @@ namespace imaiUtil
 		void updateDrawing_withTransformedLocalPC();
 	};
 	
-#define _CoordinatedCropBoxClass
-#ifdef  _CoordinatedCropBoxClass
+#ifdef __CoordinatedCropBoxClass
 
 	template<class T_point>
 	class CoordinatedCropBoxClass : public pcl::CropBox<T_point>
@@ -113,6 +113,8 @@ namespace imaiUtil
 		void updateDrawing();
 
 	};
+
+
 
 	template<class T_point>
 	imaiUtil::CoordinatedCropBoxClass<T_point>::CoordinatedCropBoxClass()
@@ -178,6 +180,9 @@ namespace imaiUtil
 	}
 
 
+
+	
+
 	template<class T_point>
 	void imaiUtil::CoordinatedCropBoxClass<T_point>::updateCoeff_byTf()
 	{
@@ -232,7 +237,7 @@ namespace imaiUtil
 				return this->tf_self * parent->getTf_Base2Self();
 		}
 
-
+ 
 	};
 
 	template< class T_point >
@@ -298,7 +303,15 @@ namespace imaiUtil
 
 	}
 
-};
 
+
+		/*
+		template<class T_point>
+			void setCropBoxCoefficients( 
+				pcl::CropBox<T_point>& cropBox ,
+				pcl::ModelCoefficients& box 
+				);
+		*/
+};
 
 #endif
