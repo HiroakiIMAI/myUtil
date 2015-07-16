@@ -60,7 +60,6 @@ namespace imaiUtil
 	private:
 		pcl::visualization::PCLVisualizer* int_viewer;
 		int* int_viewPort;
-		bool flag_drawFirstTime;
 
 		//-- methods --//
 	public:
@@ -71,6 +70,9 @@ namespace imaiUtil
 		void updateDrawing_withTransformedLocalPC();
 	};
 	
+#define _CoordinatedCropBoxClass
+#ifdef  _CoordinatedCropBoxClass
+
 	template<class T_point>
 	class CoordinatedCropBoxClass : public pcl::CropBox<T_point>
 	{
@@ -176,63 +178,6 @@ namespace imaiUtil
 	}
 
 
-
-	/*
-	template<class T_point>
-	void imaiUtil::CoordinatedCropBoxClass<T_point>::setCropBoxParam_fromCoeff()
-	{
-		//	pcl::ModelCoefficients box;
-		//	box.values[0] = 0  ; box.values[1] = 0  ; box.values[2] = 0  ;						// translate
-		//	box.values[3] = 0  ; box.values[4] = 0  ; box.values[5] = 0  ; box.values[6] = 0;	// rotation (quaternion)
-		//	box.values[7] = 0.2; box.values[8] = 0.2; box.values[9] = 0.2;						// size
-
-		// set filter param
-		this->setMax(  
-			this->coeff.values[7]/2.0,
-			this->coeff.values[8]/2.0,
-			this->coeff.values[9]/2.0, 1.0f );
-		this->setMin( 
-			-this->coeff.values[7]/2.0,
-			-this->coeff.values[8]/2.0,
-			-this->coeff.values[9]/2.0, 1.0f );
-		this->setTranslation(
-			Eigen::Vector3f( 
-				this->coeff.values[0], 
-				this->coeff.values[1],
-				this->coeff.values[2], 
-				)
-			);
-		//param[in] rotation the (rx,ry,rz) values that the box should be rotated by
-		Eigen::Quaternionf quaternion(
-			box.values[3],
-			box.values[4],
-			box.values[5],
-			box.values[6],
-			);
-
-		Eigen::Vector3f roteVec = 
-		this->setRotation(roteVec);
-
-		// set coeff
-		//Eigen::Vector4f quaternion(roteVec);
-		coeff.values.resize(10);
-		coeff.values[0] = translation.x; 
-		coeff.values[1] = translation.y;
-		coeff.values[2] = translation.z; // translate
-		coeff.values[3] = quaternion.w;
-		coeff.values[4] = quaternion.x;
-		coeff.values[5] = quaternion.y;
-		coeff.values[6] = quaternion.z;	// rotation (quaternion)
-		coeff.values[7] = size.x;
-		coeff.values[8] = size.y;
-		coeff.values[9] = size.z;// size
-
-		// set transform 
-		this->tf.pretranslate(translation);
-		this->tf.prerotate(roteVec);
-	}
-	*/
-
 	template<class T_point>
 	void imaiUtil::CoordinatedCropBoxClass<T_point>::updateCoeff_byTf()
 	{
@@ -265,15 +210,95 @@ namespace imaiUtil
 		this->int_viewer->updateShapePose(this->str_id, this->tf);
 	}
 
+#endif
+
+	class ChainedObjectBaseClass
+	{
+	public:
+		Eigen::Affine3f tf_self;
+		ChainedObjectBaseClass* parent;
+		std::vector<ChainedObjectBaseClass*> chirdren;
+	
+	public:
+		ChainedObjectBaseClass():
+			parent(NULL)
+		{}
+
+		Eigen::Affine3f getTf_Base2Self()
+		{
+			if( this->parent == NULL )
+				return this->tf_self;
+			else
+				return this->tf_self * parent->getTf_Base2Self();
+		}
 
 
-		/*
-		template<class T_point>
-			void setCropBoxCoefficients( 
-				pcl::CropBox<T_point>& cropBox ,
-				pcl::ModelCoefficients& box 
-				);
-		*/
+	};
+
+	template< class T_point >
+	int ransac_plane( 
+		boost::shared_ptr<pcl::PointCloud<T_point>> cloud_in, 
+		pcl::PointCloud<T_point>& cloud_out_inliers,
+		pcl::PointCloud<T_point>& cloud_out_outliers,
+		pcl::ModelCoefficients::Ptr coefficients,
+		bool flag_coloring4cloudIn = false
+		)
+	{
+		//-- RANSAC segmentation --//
+		coefficients.reset( new pcl::ModelCoefficients );
+		pcl::PointIndices::Ptr inliers (new pcl::PointIndices);
+		// Create the segmentation object
+		pcl::SACSegmentation<pcl::PointXYZRGB> objRANSAC;
+		// Optional
+		objRANSAC.setOptimizeCoefficients (true);
+		// Mandatory
+		objRANSAC.setModelType (pcl::SACMODEL_PLANE);
+		objRANSAC.setMethodType (pcl::SAC_RANSAC);
+		objRANSAC.setDistanceThreshold (0.01);
+		objRANSAC.setInputCloud ( cloud_in );
+		// execute RANSAC segmentation
+		objRANSAC.segment (*inliers, *coefficients);
+ 
+
+		//-- Extruct inlier/outlier of detected plane --//
+		pcl::ExtractIndices<pcl::PointXYZRGB> extract;
+		extract.setInputCloud ( cloud_in );
+		extract.setIndices(inliers);
+		extract.setNegative( false );
+		extract.filter( cloud_out_inliers);
+		extract.setNegative( true );
+		extract.filter( cloud_out_outliers);
+
+		//-- Coloring --//
+		if(flag_coloring4cloudIn)
+		{
+			int size_inliers = inliers->indices.size();
+			for(int i=0 ; i<size_inliers ; i++)
+			{
+				cloud_in->points[ inliers->indices[i] ].r = 255;
+				cloud_in->points[ inliers->indices[i] ].g = 127;
+				cloud_in->points[ inliers->indices[i] ].b = 127; 
+			}
+		}
+
+
+		if (inliers->indices.size () == 0)
+		{
+			PCL_ERROR ("Could not estimate a planar model for the given dataset.");
+			return -1;
+		}
+		else
+		{
+			std::cerr << "Model coefficients: " << coefficients->values[0] << " " 
+									<< coefficients->values[1] << " "
+									<< coefficients->values[2] << " " 
+									<< coefficients->values[3] << std::endl;
+			return 0;
+		}
+
+	}
+
 };
+
 
 #endif
