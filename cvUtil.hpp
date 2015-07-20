@@ -26,6 +26,10 @@ namespace imaiUtil{
 		cv::Point& mPos,
 		cv::Size2i& sTmpl);
 
+	void drawCoordinate_fromXml( std::string fileName_int, std::string fileName_ext, cv::Mat img_out );
+
 }
+
+
 
 #endif

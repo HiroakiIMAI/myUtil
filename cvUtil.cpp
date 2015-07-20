@@ -1,4 +1,4 @@
-#include "stdafx.h"
+//#include "stdafx.h"
 
 #include "cvUtil.hpp"
 
@@ -80,4 +80,37 @@ void imaiUtil::multiScaleTM(
 	//src_8UC1.copyTo(result);
 	matchedResult[templateMatch_matchedScale].copyTo(result);
 
+}
+
+
+
+
+void imaiUtil::drawCoordinate_fromXml( std::string fileName_int, std::string fileName_ext, cv::Mat img_out )
+{
+	cv::FileStorage fs_camParam( fileName_int, cv::FileStorage::READ);
+	cv::Mat intrinsic;
+	cv::Mat distCoeff;
+	fs_camParam["camera_matrix"]           >> intrinsic;
+	fs_camParam["distortion_coefficients"] >> distCoeff;
+
+	cv::FileStorage fs_ext( fileName_ext, cv::FileStorage::READ);
+	cv::Mat t_vec;
+	cv::Mat r_vec;
+	fs_ext["translation"] >> t_vec;
+	fs_ext["rotation"]    >> r_vec;
+
+	std::vector<cv::Point3f> objPoints;
+	objPoints.push_back( cv::Point3f( 0, 0, 0) );
+	objPoints.push_back( cv::Point3f( 100, 0, 0) );
+	objPoints.push_back( cv::Point3f( 0, 100, 0) );
+	objPoints.push_back( cv::Point3f( 0, 0, 100) );
+	std::vector<cv::Point2f> imgPoints;
+	
+	cv::projectPoints( objPoints, r_vec, t_vec, intrinsic, distCoeff, imgPoints );
+
+	cv::circle( img_out, imgPoints[0], 5, cv::Scalar(255,255,255), -1 );
+	cv::circle( img_out, imgPoints[1], 5, cv::Scalar(  0,  0,255), -1 );
+	cv::circle( img_out, imgPoints[2], 5, cv::Scalar(  0,255,  0), -1 );
+	cv::circle( img_out, imgPoints[3], 5, cv::Scalar(255,  0,  0), -1 );
+	cv::imshow( "coordinate", img_out );	
 }

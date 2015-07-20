@@ -20,7 +20,6 @@
 
 #include <pcl/visualization/cloud_viewer.h>  
 
-
 namespace imaiUtil
 {
 
@@ -81,8 +80,8 @@ namespace imaiUtil
 		void updateDrawing_withTransformedLocalPC();
 	};
 	
-
-#ifdef __CoordinatedCropBoxClass
+#ifndef __CoordinatedCropBoxClass
+#define __CoordinatedCropBoxClass
 
 	template<class T_point>
 	class CoordinatedCropBoxClass : public pcl::CropBox<T_point>
@@ -105,7 +104,7 @@ namespace imaiUtil
 			Eigen::Vector3f size
 			);
 
-		void updateCoeff_byTf();
+		void updateTf( Eigen::Affine3f* p_tfIn = (Eigen::Affine3f*)NULL );
 
 		/*
 		void setCropBoxParam( 
@@ -144,46 +143,28 @@ namespace imaiUtil
 		//	box.values[0] = 0  ; box.values[1] = 0  ; box.values[2] = 0  ;						// translate
 		//	box.values[3] = 0  ; box.values[4] = 0  ; box.values[5] = 0  ; box.values[6] = 0;	// rotation (quaternion)
 		//	box.values[7] = 0.2; box.values[8] = 0.2; box.values[9] = 0.2;						// size
-
-		Eigen::Matrix3f roteMat;
-		roteMat = Eigen::Matrix3f::Identity()
-			* Eigen::AngleAxisf( roteVec.x() , Eigen::Vector3f::UnitX() )
-			* Eigen::AngleAxisf( roteVec.y() , Eigen::Vector3f::UnitY() )
-			* Eigen::AngleAxisf( roteVec.z() , Eigen::Vector3f::UnitZ() );
-		Eigen::Quaternionf quaternion(roteMat);
-	
-		std::cout<< "roteMat is"<< std::endl;
-		std::cout<< roteMat<< std::endl;
-
-		// set transform 
-		this->tf.translation() = translation;
-		this->tf.matrix()(0,0)= roteMat(0,0);
-		this->tf.matrix()(0,1)= roteMat(0,1);
-		this->tf.matrix()(0,2)= roteMat(0,2);
-		this->tf.matrix()(1,0)= roteMat(1,0);
-		this->tf.matrix()(1,1)= roteMat(1,1);
-		this->tf.matrix()(1,2)= roteMat(1,2);
-		this->tf.matrix()(2,0)= roteMat(2,0);
-		this->tf.matrix()(2,1)= roteMat(2,1);
-		this->tf.matrix()(2,2)= roteMat(2,2);
-
-		std::cout<< "initial transform of cropBox is"<<std::endl;
-		std::cout<< this->tf.matrix() << std::endl;
 		
-		// set coeff
+		// make quaternion from roteMat
+		Eigen::Quaternionf quat(
+			Eigen::AngleAxisf( roteVec.x(), Eigen::Vector3f::UnitX() ) *
+			Eigen::AngleAxisf( roteVec.y(), Eigen::Vector3f::UnitY() ) *
+			Eigen::AngleAxisf( roteVec.z(), Eigen::Vector3f::UnitZ() )
+			);
+
+		// init coeff for visual
 		coeff.values.resize(10);
-		coeff.values[0] = 0; // x
-		coeff.values[1] = 0; // y
-		coeff.values[2] = 0; // z of inner translate
-		coeff.values[3] = 0; // w
-		coeff.values[4] = 0; // i
-		coeff.values[5] = 0; // j
-		coeff.values[6] = 0; // k of inner rotation (quaternion)
+		coeff.values[0] = translation.x(); // x
+		coeff.values[1] = translation.y(); // y
+		coeff.values[2] = translation.z(); // z of inner translate
+		coeff.values[3] = quat.x(); // i
+		coeff.values[4] = quat.y(); // j
+		coeff.values[5] = quat.z(); // k
+		coeff.values[6] = quat.w(); // w of inner rotation (quaternion)
 		coeff.values[7] = size.x();
 		coeff.values[8] = size.y();
 		coeff.values[9] = size.z(); // size
 
-		// set filter param
+		// set box param
 		this->setMax( Eigen::Vector4f( size.x()/2.0,  size.y()/2.0,  size.z()/2.0, 1.0f ) );
 		this->setMin( Eigen::Vector4f(-size.x()/2.0, -size.y()/2.0, -size.z()/2.0, 1.0f ) );
 		this->setTranslation(translation);	
@@ -191,17 +172,17 @@ namespace imaiUtil
 	}
 
 
-
-	
-
 	template<class T_point>
-	void imaiUtil::CoordinatedCropBoxClass<T_point>::updateCoeff_byTf()
+	void imaiUtil::CoordinatedCropBoxClass<T_point>::updateTf( Eigen::Affine3f* p_tfIn )
 	{
-		// set filter param	
-		//this->setTransform(this->tf);
-		this->setTranslation(this->tf.translation());
-		Eigen::AngleAxisf aa(this->tf.rotation()); 
-		this->setRotation( aa.angle()*aa.axis() );
+		if( p_tfIn != NULL )
+			this->tf = *p_tfIn;
+
+		//-- set filter param --//
+		// this function set transform for inputCloud before filtering.
+		// so neither coefficents for visual nor box param are not influenced.
+		this->setTransform( this->tf.inverse() );
+				
 	}
 
 	template<class T_point>
@@ -220,7 +201,7 @@ namespace imaiUtil
 	template<class T_point>
 	void imaiUtil::CoordinatedCropBoxClass<T_point>::updateDrawing()
 	{
-		this->updateCoeff_byTf();
+		this->updateTf();
 		//this->int_viewer->removeShape(this->str_id);
 		//this->int_viewer->addCube( this->coeff, this->str_id, *this->int_viewPort);
 		this->int_viewer->updateShapePose(this->str_id, this->tf);
