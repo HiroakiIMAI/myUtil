@@ -42,7 +42,13 @@ imaiUtil::readExtrinsic_EigenAffine3f( std::string fileName, bool roteAroundZAxi
 	cv::Mat r_mtx;
 	fs["translation"] >> t;
 	fs["rotation"]    >> r_vec;
-	cv::Rodrigues(r_vec, r_mtx);
+	if( ( (r_vec.cols==1) && (r_vec.rows==3) ) || 
+		( (r_vec.cols==3) && (r_vec.rows==1) ) )
+	{ cv::Rodrigues(r_vec, r_mtx); }
+	else if( (r_vec.cols==3) || (r_vec.rows==3) )
+	{ r_mtx = r_vec; }
+	else
+	{ std::cout<< "ERROR, invaled matrix type : readExtrinsic()"<< std::endl; }
 	//std::cout<<"t_vec"<< t<< std::endl;
 	//std::cout<<"r_vec"<< r_vec<< std::endl;
 	//std::cout<<"r_mtx"<< r_mtx<< std::endl;
