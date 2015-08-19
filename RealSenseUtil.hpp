@@ -118,6 +118,7 @@ namespace imaiUtil{
 
 	  cv::Mat color;
 	  cv::Mat depth;
+	  cv::Mat ir;
 	  cv::Mat pc3DMat;
 	  cv::Mat colorIndicsMapped2pc3DMat;
 

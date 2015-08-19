@@ -218,7 +218,7 @@ int RealSenseClass::openDepth(
 		switch( depthFrameFormat )
 		{
 		case UVC_FRAME_FORMAT_INRI:
-			this->depth      = cv::Mat( imageSize, CV_8UC3 );
+			this->depth      = cv::Mat( imageSize, CV_16U );
 			this->depth_buff = cv::Mat( imageSize, CV_8UC3 );
 			break;
 		case UVC_FRAME_FORMAT_INVI:
@@ -229,6 +229,7 @@ int RealSenseClass::openDepth(
 			this->depth      = cv::Mat( imageSize, CV_16U );
 			this->depth_buff = cv::Mat( imageSize, CV_16U );
 		}
+		this->ir = cv::Mat( imageSize, CV_8UC1 );
 
 		if(verbose)
 		{
@@ -428,9 +429,43 @@ cv::Mat* RealSenseClass::getColorImage()
 
 cv::Mat* RealSenseClass::getDepthImage()
 {
-	pthread_mutex_lock( &this->mtx_d );
-	this->depth_buff.copyTo( this->depth );
-	pthread_mutex_unlock( &this->mtx_d );
+	switch( this->depthFormat )
+	{
+		case UVC_FRAME_FORMAT_INVI:
+		{
+			pthread_mutex_lock( &this->mtx_d );
+			this->depth_buff.copyTo( this->depth );
+			pthread_mutex_unlock( &this->mtx_d );
+
+			this->ir = this->depth;
+			break;
+		}
+		case UVC_FRAME_FORMAT_INRI:
+		{
+			const int w = this->depth.cols;
+			const int h = this->depth.rows;
+			pthread_mutex_lock( &this->mtx_d );
+			//this->depth_buff.copyTo( this->depth );
+			for(int i=0; i<h; i++)
+				for(int j=0; j<w; j++)
+				{
+					((unsigned short*)this->depth.data)[(w*i+j)] =
+							(((unsigned short)this->depth_buff.data[3*(w*i+j)  ])   )+
+							(((unsigned short)this->depth_buff.data[3*(w*i+j)+1])<<8);
+					this->ir.data[(w*i+j)]  = this->depth_buff.data[3*(w*i+j)+2];
+				}
+			pthread_mutex_unlock( &this->mtx_d );
+
+			break;
+		}
+		default:
+		{
+			pthread_mutex_lock( &this->mtx_d );
+			this->depth_buff.copyTo( this->depth );
+			pthread_mutex_unlock( &this->mtx_d );
+			break;
+		}
+	}
 
 	if(calibrated)
 	{
@@ -473,7 +508,8 @@ cv::Mat* RealSenseClass::getPc3DMat()
 	double cx_d = this->intrinsic_depth.camMtx.at<double>(0,2);
 	double cy_d = this->intrinsic_depth.camMtx.at<double>(1,2);
 
-	if( this->depthFormat == UVC_FRAME_FORMAT_INVR )
+	if( (this->depthFormat == UVC_FRAME_FORMAT_INVR) ||
+		(this->depthFormat == UVC_FRAME_FORMAT_INRI) )
 	{
 		for(int v=0; v<height_d; v++ )
 		{
